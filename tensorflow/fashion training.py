@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 import os
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.layers import LeakyReLU, BatchNormalization, Dropout
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
@@ -15,6 +17,9 @@ from scipy.stats import uniform, randint
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.metrics import classification_report
 import matplotlib.pyplot as plt
+
+# Per salvare scaler e PCA
+import joblib
 
 # 1) DATA LOADING AND PREPARATION ------------------------------------------
 (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.fashion_mnist.load_data()
@@ -46,8 +51,6 @@ X_val_pca = pca.transform(X_val_scaled)
 X_test_pca = pca.transform(X_test_scaled)
 
 # 1.5) VISUALIZATION OF EXAMPLES FROM THE DATASET -------------------------
-
-# Function to display images
 def plot_sample_images(images, labels, class_names, num_samples=25):
     """
     Display a grid of sample images with their labels.
@@ -72,7 +75,6 @@ class_names = [
 # Visualize examples from the training set
 print("Displaying sample images from the dataset...")
 plot_sample_images(X_train_full.reshape((-1, 28, 28)), y_train_full, class_names)
-
 
 # 2) MODEL DEFINITION AND RANDOMIZED SEARCH --------------------------------
 def create_model(first_layer_neurons=128, 
@@ -138,7 +140,7 @@ param_dist = {
 random_search = RandomizedSearchCV(
     estimator=model_wrapper,
     param_distributions=param_dist,
-    n_iter=5,        # increased for better search coverage
+    n_iter=5,        # puoi aumentare per una ricerca più approfondita
     cv=3,
     verbose=2,
     random_state=42,
@@ -295,6 +297,16 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
+# SALVATAGGIO SCALER E PCA -------------------------------------------------
+print("\nSalvataggio di best_model.keras, scaler.pkl e pca.pkl ...")
+
+# il modello è già stato salvato in checkpoint_callback, ma salviamo
+# nuovamente, così siamo sicuri di salvare la versione finale
+model_best.save("best_model.keras")  
+
+# Salviamo gli oggetti di preprocessing
+joblib.dump(scaler, "scaler.pkl")
+joblib.dump(pca, "pca.pkl")
 
 # Class names for Fashion MNIST
 class_names = [
@@ -304,20 +316,17 @@ class_names = [
 
 #SAVE IMAGES
 def save_individual_images(images, labels, class_names, output_dir, num_samples=25):
-    """
-    Salva num_samples immagini individuali in formato PNG,
-    sostituendo caratteri speciali nelle etichette per evitare problemi di path.
-    """
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     for i in range(num_samples):
         image = images[i]
-        # Sostituiamo eventuali slash con underscore
+
         label_name = class_names[labels[i]].replace('/', '_')
         output_path = os.path.join(output_dir, f"image_{i+1}_{label_name}.png")
         
-        # Salva l'immagine come PNG (scala di grigi)
+
         plt.imsave(output_path, image, cmap='binary')
         print(f"Saved: {output_path}")
 
@@ -328,5 +337,3 @@ save_individual_images(
     class_names,
     output_dir="images"
 )
-
-print("\n--- Script completato ---")
