@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import os
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -44,6 +44,35 @@ pca = PCA(n_components=50, random_state=42)
 X_train_pca = pca.fit_transform(X_train_scaled)
 X_val_pca = pca.transform(X_val_scaled)
 X_test_pca = pca.transform(X_test_scaled)
+
+# 1.5) VISUALIZATION OF EXAMPLES FROM THE DATASET -------------------------
+
+# Function to display images
+def plot_sample_images(images, labels, class_names, num_samples=25):
+    """
+    Display a grid of sample images with their labels.
+    """
+    plt.figure(figsize=(10, 10))
+    for i in range(num_samples):
+        plt.subplot(5, 5, i + 1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.grid(False)
+        plt.imshow(images[i], cmap=plt.cm.binary)
+        plt.xlabel(class_names[labels[i]])
+    plt.tight_layout()
+    plt.show()
+
+# Class names for Fashion MNIST
+class_names = [
+    'T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+    'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'
+]
+
+# Visualize examples from the training set
+print("Displaying sample images from the dataset...")
+plot_sample_images(X_train_full.reshape((-1, 28, 28)), y_train_full, class_names)
+
 
 # 2) MODEL DEFINITION AND RANDOMIZED SEARCH --------------------------------
 def create_model(first_layer_neurons=128, 
@@ -109,7 +138,7 @@ param_dist = {
 random_search = RandomizedSearchCV(
     estimator=model_wrapper,
     param_distributions=param_dist,
-    n_iter=20,        # increased for better search coverage
+    n_iter=5,        # increased for better search coverage
     cv=3,
     verbose=2,
     random_state=42,
@@ -265,3 +294,39 @@ plt.ylabel('Value')
 plt.legend()
 plt.grid(True)
 plt.show()
+
+
+# Class names for Fashion MNIST
+class_names = [
+    'T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+    'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'
+]
+
+#SAVE IMAGES
+def save_individual_images(images, labels, class_names, output_dir, num_samples=25):
+    """
+    Salva num_samples immagini individuali in formato PNG,
+    sostituendo caratteri speciali nelle etichette per evitare problemi di path.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for i in range(num_samples):
+        image = images[i]
+        # Sostituiamo eventuali slash con underscore
+        label_name = class_names[labels[i]].replace('/', '_')
+        output_path = os.path.join(output_dir, f"image_{i+1}_{label_name}.png")
+        
+        # Salva l'immagine come PNG (scala di grigi)
+        plt.imsave(output_path, image, cmap='binary')
+        print(f"Saved: {output_path}")
+
+print("\nSaving individual sample images from the dataset (Train) to 'images' folder...")
+save_individual_images(
+    X_train_full,  # qui stiamo prendendo i primi 25 della parte "train" originale
+    y_train_full, 
+    class_names,
+    output_dir="images"
+)
+
+print("\n--- Script completato ---")
