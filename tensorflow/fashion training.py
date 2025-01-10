@@ -8,9 +8,7 @@ from tensorflow.keras import layers
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten
 from tensorflow.keras.layers import BatchNormalization, Dropout, LeakyReLU
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.metrics import (
-    confusion_matrix, precision_score, recall_score, f1_score, classification_report
-)
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, classification_report
 from scikeras.wrappers import KerasClassifier
 from scipy.stats import uniform, randint
 import matplotlib.pyplot as plt
@@ -37,15 +35,14 @@ X_test  = np.expand_dims(X_test,  axis=-1)
 def create_cnn(
     conv1_filters=32,
     conv2_filters=64,
-    conv3_filters=64,
     kernel_size=3,
     dense_units=128,
     dropout_rate=0.3,
     learning_rate=0.001
 ):
     """
-    A CNN model for Fashion MNIST with 3 conv blocks:
-    - 3 Convolutional blocks (Conv2D -> LeakyReLU -> BN -> MaxPool -> Dropout)
+    A CNN model for Fashion MNIST:
+    - 2 Convolutional blocks (Conv2D -> LeakyReLU -> BatchNorm -> MaxPooling -> Dropout)
     - Flatten + Dense layer with LeakyReLU + BN + Dropout
     - Final Dense(10) with softmax
     """
@@ -56,21 +53,14 @@ def create_cnn(
     model.add(Conv2D(filters=conv1_filters, kernel_size=kernel_size, padding='same'))
     model.add(LeakyReLU(negative_slope=0.1))
     model.add(BatchNormalization())
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(MaxPooling2D(pool_size=(2,2)))
     model.add(Dropout(dropout_rate))
     
     # Second conv block
     model.add(Conv2D(filters=conv2_filters, kernel_size=kernel_size, padding='same'))
     model.add(LeakyReLU(negative_slope=0.1))
     model.add(BatchNormalization())
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(dropout_rate))
-    
-    # Third conv block
-    model.add(Conv2D(filters=conv3_filters, kernel_size=kernel_size, padding='same'))
-    model.add(LeakyReLU(negative_slope=0.1))
-    model.add(BatchNormalization())
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(MaxPooling2D(pool_size=(2,2)))
     model.add(Dropout(dropout_rate))
     
     # Flatten and Dense
@@ -103,20 +93,18 @@ model_wrapper = KerasClassifier(
 param_dist = {
     'model__conv1_filters': randint(16, 64),
     'model__conv2_filters': randint(32, 128),
-    'model__conv3_filters': randint(32, 128),
-    'model__kernel_size':   randint(2, 5),
-    'model__dense_units':   randint(64, 256),
-    'model__dropout_rate':  uniform(0.0, 0.5),
+    'model__kernel_size': randint(2, 5),
+    'model__dense_units': randint(64, 256),
+    'model__dropout_rate': uniform(0.0, 0.5),
     'model__learning_rate': uniform(1e-4, 1e-2),
-    'batch_size':           randint(32, 128),
-    # We increase the epochs range to 20-40
-    'epochs':               randint(20, 40)
+    'batch_size': randint(32, 128),
+    'epochs': randint(5, 20)
 }
 
 random_search = RandomizedSearchCV(
     estimator=model_wrapper,
     param_distributions=param_dist,
-    n_iter=20,        # increased to explore more combinations
+    n_iter=10,         # you can increase this to 20 or 30 for a more thorough search
     cv=3,
     verbose=2,
     random_state=42,
@@ -129,47 +117,33 @@ random_search.fit(X_train, y_train, validation_data=(X_val, y_val))
 print("\nBest parameters found by Random Search:")
 print(random_search.best_params_)
 
-# Evaluate on the test set (best estimator)
+# Evaluate on the test set
 test_score = random_search.best_estimator_.score(X_test, y_test)
 print(f"Test set accuracy (Random Search model): {test_score:.4f}")
 
-# 5) BUILD FINAL MODEL + DATA AUGMENTATION ---------------------------------
-
-# Extract best params
+# 5) FINAL TRAINING + CALLBACKS --------------------------------------------
 best_params = random_search.best_params_
 
-conv1_filters = best_params['model__conv1_filters']
-conv2_filters = best_params['model__conv2_filters']
-conv3_filters = best_params['model__conv3_filters']
-kernel_size   = best_params['model__kernel_size']
-dense_units   = best_params['model__dense_units']
-dropout_rate  = best_params['model__dropout_rate']
-learning_rate = best_params['model__learning_rate']
-epochs        = best_params['epochs']
-batch_size    = best_params['batch_size']
+conv1_filters  = best_params['model__conv1_filters']
+conv2_filters  = best_params['model__conv2_filters']
+kernel_size    = best_params['model__kernel_size']
+dense_units    = best_params['model__dense_units']
+dropout_rate   = best_params['model__dropout_rate']
+learning_rate  = best_params['model__learning_rate']
+epochs         = best_params['epochs']
+batch_size     = best_params['batch_size']
 
-# Build the "final" CNN with the found hyperparameters
+# Build the final model
 model_best = create_cnn(
-    conv1_filters=conv1_filters,
-    conv2_filters=conv2_filters,
-    conv3_filters=conv3_filters,
-    kernel_size=kernel_size,
-    dense_units=dense_units,
-    dropout_rate=dropout_rate,
-    learning_rate=learning_rate
+    conv1_filters  = conv1_filters,
+    conv2_filters  = conv2_filters,
+    kernel_size    = kernel_size,
+    dense_units    = dense_units,
+    dropout_rate   = dropout_rate,
+    learning_rate  = learning_rate
 )
 
-# We set up data augmentation for the final training
-train_datagen = keras.preprocessing.image.ImageDataGenerator(
-    rotation_range=20,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True  # set to True/False as desired
-)
-train_generator = train_datagen.flow(X_train, y_train, batch_size=batch_size)
-
-# Our custom callback to track Accuracy, Precision, Recall, F1 each epoch
+# Custom callback to track Accuracy, Precision, Recall, F1 each epoch
 class MetricsLogger(keras.callbacks.Callback):
     def on_train_begin(self, logs=None):
         self.val_accuracy = []
@@ -214,10 +188,10 @@ early_stopping = keras.callbacks.EarlyStopping(
 
 metrics_logger = MetricsLogger()
 
-# Final training with data augmentation
 history = model_best.fit(
-    train_generator,
+    X_train, y_train,
     epochs=epochs,
+    batch_size=batch_size,
     validation_data=(X_val, y_val),
     callbacks=[metrics_logger, checkpoint_callback, early_stopping],
     verbose=1
