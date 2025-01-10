@@ -39,7 +39,7 @@ pipeline = Pipeline([
 #    - Include several XGBoost hyperparameters for tuning.
 param_grid = {
     'pca__n_components': [8],
-    'xgb__n_estimators': [100, 300, 500],
+    'xgb__n_estimators': [100, 500],
     'xgb__max_depth': [3, 6, 10],
     'xgb__learning_rate': [0.01, 0.1, 0.2],
     'xgb__subsample': [0.8, 1.0],
