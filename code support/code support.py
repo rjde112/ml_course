@@ -11,7 +11,7 @@ X = iris.data  # Features
 y = iris.target  # Labels
 
 # Print original dataset shape
-print("Original dataset shape:", X.shape)
+print("Original dataset shape:", X[:5])
 
 # 2. Standardization
 scaler = StandardScaler()
